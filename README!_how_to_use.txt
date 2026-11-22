@@ -1,0 +1,80 @@
+====================================================================
+HOW TO USE: WI-FI PHONE TOUCHPAD & PC REMOTE
+====================================================================
+
+1. PREPARE YOUR FOLDER
+--------------------------------------------------------------------
+Make sure these files are saved in the SAME folder on your PC
+(for example, a folder on your Desktop named "PhoneTouchpad"):
+  - pc_server.py
+  - index.html
+  - requirements.txt
+
+
+2. INSTALL PYTHON (IF NOT ALREADY INSTALLED)
+--------------------------------------------------------------------
+1. Go to https://www.python.org/downloads/ and download Python.
+2. Run the installer.
+3. IMPORTANT (Windows): Check the box at the bottom that says
+   "Add python.exe to PATH" before clicking "Install Now".
+
+
+3. INSTALL REQUIRED DEPENDENCIES
+--------------------------------------------------------------------
+1. Open the folder where you saved the files.
+   - Windows: Click the File Explorer address bar at the top,
+     type cmd, and press Enter.
+   - Mac/Linux: Open Terminal and run: cd /path/to/your/folder
+2. Run this command:
+   python -m pip install -r requirements.txt
+
+   (If "python" does not work on Windows, try:
+   py -m pip install -r requirements.txt)
+
+
+4. START THE SERVER ON YOUR PC
+--------------------------------------------------------------------
+In the same terminal window, run:
+  python pc_server.py
+
+Optional flags:
+  - Require a PIN:   python pc_server.py --pin 1234
+  - Change the port: python pc_server.py --port 9000
+
+Leave this terminal window open while using the app.
+
+
+5. CONNECT YOUR PHONE
+--------------------------------------------------------------------
+1. Connect your phone and PC to the SAME Wi-Fi network.
+2. Scan the QR code shown in your PC terminal, OR open Chrome/Safari
+   on your phone and type the http://<PC-IP>:8080 address shown.
+3. (Optional) In your phone browser's menu, tap "Add to Home Screen"
+   so it opens like a full-screen standalone app.
+
+
+6. CONTROLS & GESTURES
+--------------------------------------------------------------------
+  - 1-finger drag:       Move mouse cursor
+  - 1-finger tap:        Left click
+  - 1-finger double-tap: Double click
+  - 2-finger tap:        Right click
+  - 2-finger drag:       Scroll up, down, or sideways
+  - "Drag" button:       Hold down left-click for drag-and-drop
+  - "Keyboard" tab:      Type text or tap Copy, Paste, Undo, Alt+Tab
+  - "Media / Nav" tab:   Control Volume, Play/Pause, Arrow keys, Win/Cmd
+  - "Settings" button:   Adjust cursor sensitivity and scroll speed
+
+
+7. TROUBLESHOOTING
+--------------------------------------------------------------------
+  - Phone cannot load the page:
+    * Confirm both devices are on the exact same Wi-Fi network.
+    * Allow Python (or TCP port 8080) through Windows Defender
+      Firewall or macOS Firewall.
+  - Mouse cursor does not move on macOS:
+    * Go to System Settings -> Privacy & Security -> Accessibility
+      and enable your Terminal app or Python.
+  - Stop the server:
+    * Press Ctrl + C in the PC terminal window (or close the window).
+====================================================================

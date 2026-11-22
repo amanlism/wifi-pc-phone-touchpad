@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>PC Touchpad</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-active: #334155;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.2);
+      --danger: #f87171;
+      --success: #4ade80;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      padding: env(safe-area-inset-top, 8px) 12px env(safe-area-inset-bottom, 12px) 12px;
+      gap: 10px;
+    }
+
+    /* Top Bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 4px;
+      flex-shrink: 0;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: background 0.2s;
+    }
+
+    .dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .dot.connecting { background: #facc15; }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .icon-btn.active {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Touchpad Area */
+    .touchpad-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 200px;
+      background: radial-gradient(circle at 50% 40%, #1e293b 0%, #111827 100%);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      touch-action: none;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .touchpad-hint {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .drag-badge {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+      display: none;
+    }
+
+    .drag-badge.visible { display: block; }
+
+    .ripple {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      border: 1.5px solid var(--accent);
+      transform: translate(-50%, -50%) scale(0.4);
+      pointer-events: none;
+      animation: rippleOut 0.35s ease-out forwards;
+    }
+
+    @keyframes rippleOut {
+      to {
+        transform: translate(-50%, -50%) scale(1.6);
+        opacity: 0;
+      }
+    }
+
+    /* Mouse Buttons */
+    .mouse-buttons {
+      display: grid;
+      grid-template-columns: 1fr 0.55fr 1fr;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .mouse-btn {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .mouse-btn:active {
+      background: var(--surface-active);
+      transform: scale(0.98);
+    }
+
+    /* Mode Tabs (Keyboard / Media / Nav) */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px;
+      flex-shrink: 0;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel.open { display: flex; }
+
+    .text-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .text-input {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .text-input:focus { border-color: var(--accent); }
+
+    .key-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .key-btn {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .key-btn:active { background: var(--surface-active); }
+
+    /* Bottom Dock */
+    .dock {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .dock-btn {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .dock-btn.active {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: 100%;
+      max-width: 360px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      gap: 12px;
+    }
+
+    input[type="range"] { width: 140px; accent-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="status-pill" id="statusPill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="dragLockBtn" title="Toggle Drag Lock">Drag</button>
+        <button class="icon-btn" id="settingsBtn">Settings</button>
+      </div>
+    </div>
+
+    <div class="touchpad-wrap" id="touchpad">
+      <div class="drag-badge" id="dragBadge">DRAG LOCK ON</div>
+      <div class="touchpad-hint">
+        1-finger move &bull; Tap to click<br />
+        2-finger tap right-click &bull; 2-finger scroll
+      </div>
+    </div>
+
+    <div class="mouse-buttons">
+      <button class="mouse-btn" id="leftBtn">Left</button>
+      <button class="mouse-btn" id="middleBtn">Mid</button>
+      <button class="mouse-btn" id="rightBtn">Right</button>
+    </div>
+
+    <!-- Keyboard Panel -->
+    <div class="panel" id="keyboardPanel">
+      <div class="text-row">
+        <input type="text" class="text-input" id="textInput" placeholder="Type here to send to PC..." autocomplete="off" />
+        <button class="icon-btn" id="sendTextBtn">Send</button>
+      </div>
+      <div class="key-grid">
+        <button class="key-btn" data-key="esc">Esc</button>
+        <button class="key-btn" data-key="tab">Tab</button>
+        <button class="key-btn" data-key="backspace">Bksp</button>
+        <button class="key-btn" data-key="enter">Enter</button>
+        <button class="key-btn" data-hotkey="ctrl_or_cmd,c">Copy</button>
+        <button class="key-btn" data-hotkey="ctrl_or_cmd,v">Paste</button>
+        <button class="key-btn" data-hotkey="ctrl_or_cmd,z">Undo</button>
+        <button class="key-btn" data-hotkey="alt,tab">Alt+Tab</button>
+      </div>
+    </div>
+
+    <!-- Navigation & Media Panel -->
+    <div class="panel" id="mediaPanel">
+      <div class="key-grid">
+        <button class="key-btn" data-key="prev">Prev</button>
+        <button class="key-btn" data-key="play_pause">Play/Pause</button>
+        <button class="key-btn" data-key="next">Next</button>
+        <button class="key-btn" data-key="mute">Mute</button>
+        <button class="key-btn" data-key="volume_down">Vol -</button>
+        <button class="key-btn" data-key="up">Up</button>
+        <button class="key-btn" data-key="volume_up">Vol +</button>
+        <button class="key-btn" data-key="win">Win/Cmd</button>
+        <button class="key-btn" data-key="left">Left</button>
+        <button class="key-btn" data-key="down">Down</button>
+        <button class="key-btn" data-key="right">Right</button>
+        <button class="key-btn" data-key="space">Space</button>
+      </div>
+    </div>
+
+    <div class="dock">
+      <button class="dock-btn active" id="tabPad">Touchpad</button>
+      <button class="dock-btn" id="tabKeyboard">Keyboard</button>
+      <button class="dock-btn" id="tabMedia">Media / Nav</button>
+      <button class="dock-btn" id="reconnectBtn">Reconnect</button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <h2>Touchpad Settings</h2>
+      <label class="setting-row">
+        <span>Sensitivity (<span id="sensVal">1.8</span>x)</span>
+        <input type="range" id="sensSlider" min="0.5" max="4.5" step="0.1" value="1.8" />
+      </label>
+      <label class="setting-row">
+        <span>Scroll Speed (<span id="scrollVal">1.0</span>x)</span>
+        <input type="range" id="scrollSlider" min="0.3" max="3.0" step="0.1" value="1.0" />
+      </label>
+      <label class="setting-row">
+        <span>Natural Scrolling</span>
+        <input type="checkbox" id="naturalScroll" checked />
+      </label>
+      <label class="setting-row">
+        <span>Haptic Feedback</span>
+        <input type="checkbox" id="hapticToggle" checked />
+      </label>
+      <label class="setting-row">
+        <span>Keep Screen Awake</span>
+        <input type="checkbox" id="wakeLockToggle" checked />
+      </label>
+      <button class="icon-btn" id="closeSettingsBtn">Done</button>
+    </div>
+  </div>
+
+  <!-- PIN Modal -->
+  <div class="modal-backdrop" id="pinModal">
+    <div class="modal">
+      <h2>Enter Server PIN</h2>
+      <input type="password" inputmode="numeric" class="text-input" id="pinInput" placeholder="4-digit PIN" />
+      <button class="icon-btn active" id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+
+  <script>
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const touchpad = document.getElementById("touchpad");
+    const dragLockBtn = document.getElementById("dragLockBtn");
+    const dragBadge = document.getElementById("dragBadge");
+
+    const settings = {
+      sensitivity: parseFloat(localStorage.getItem("tp_sens") || "1.8"),
+      scrollSpeed: parseFloat(localStorage.getItem("tp_scroll") || "1.0"),
+      naturalScroll: localStorage.getItem("tp_natural") !== "false",
+      haptics: localStorage.getItem("tp_haptics") !== "false",
+      wakeLock: localStorage.getItem("tp_wakelock") !== "false",
+    };
+
+    let ws = null;
+    let wakeLockSentinel = null;
+    let dragLocked = false;
+
+    function vibrate(ms = 12) {
+      if (settings.haptics && navigator.vibrate) navigator.vibrate(ms);
+    }
+
+    function send(payload) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      }
+    }
+
+    function setStatus(state, label) {
+      statusDot.className = "dot " + state;
+      statusText.textContent = label;
+    }
+
+    function connectWS() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close();
+      }
+      setStatus("connecting", "Connecting...");
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+      ws.onopen = () => setStatus("connected", "Connected");
+      ws.onclose = () => {
+        setStatus("", "Disconnected");
+        setTimeout(connectWS, 2000);
+      };
+      ws.onerror = () => setStatus("", "Connection Error");
+      ws.onmessage = (evt) => {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "auth_required" && msg.required) {
+          document.getElementById("pinModal").classList.add("open");
+        } else if (msg.type === "auth_ok") {
+          document.getElementById("pinModal").classList.remove("open");
+        } else if (msg.type === "auth_fail") {
+          alert("Incorrect PIN");
+        }
+      };
+    }
+
+    async function updateWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      if (settings.wakeLock && !wakeLockSentinel) {
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request("screen");
+        } catch {}
+      } else if (!settings.wakeLock && wakeLockSentinel) {
+        await wakeLockSentinel.release();
+        wakeLockSentinel = null;
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && settings.wakeLock) {
+        wakeLockSentinel = null;
+        updateWakeLock();
+      }
+    });
+
+    // Touchpad Gesture Engine
+    let activeTouches = new Map();
+    let touchStartTime = 0;
+    let maxTouches = 0;
+    let totalMoved = 0;
+    let lastTapTime = 0;
+    let scrollAccumY = 0;
+    let scrollAccumX = 0;
+
+    function spawnRipple(x, y) {
+      const rect = touchpad.getBoundingClientRect();
+      const el = document.createElement("div");
+      el.className = "ripple";
+      el.style.left = `${x - rect.left}px`;
+      el.style.top = `${y - rect.top}px`;
+      touchpad.appendChild(el);
+      setTimeout(() => el.remove(), 360);
+    }
+
+    touchpad.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+      }
+      if (activeTouches.size === 1 && e.touches.length === 1) {
+        touchStartTime = Date.now();
+        maxTouches = 1;
+        totalMoved = 0;
+      } else {
+        maxTouches = Math.max(maxTouches, e.touches.length);
+      }
+    }, { passive: false });
+
+    touchpad.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        const prev = activeTouches.get(t.identifier);
+        if (prev) {
+          const rawDx = t.clientX - prev.x;
+          const rawDy = t.clientY - prev.y;
+          totalMoved += Math.hypot(rawDx, rawDy);
+          // Mild pointer acceleration for fast flicks
+          const speed = Math.hypot(rawDx, rawDy);
+          const accel = 1 + Math.min(speed / 30, 1.2);
+          send({
+            type: "move",
+            dx: rawDx * settings.sensitivity * accel,
+            dy: rawDy * settings.sensitivity * accel,
+          });
+        }
+        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+      } else if (e.touches.length === 2) {
+        const t0 = e.touches[0];
+        const prev0 = activeTouches.get(t0.identifier);
+        if (prev0) {
+          const dy = (t0.clientY - prev0.y) * settings.scrollSpeed * 0.15;
+          const dx = (t0.clientX - prev0.x) * settings.scrollSpeed * 0.15;
+          totalMoved += Math.hypot(t0.clientX - prev0.x, t0.clientY - prev0.y);
+          const dir = settings.naturalScroll ? 1 : -1;
+          scrollAccumY += dy * dir;
+          scrollAccumX += dx * -dir;
+          const sy = Math.trunc(scrollAccumY);
+          const sx = Math.trunc(scrollAccumX);
+          if (sy !== 0 || sx !== 0) {
+            send({ type: "scroll", dx: sx, dy: sy });
+            scrollAccumY -= sy;
+            scrollAccumX -= sx;
+          }
+        }
+        for (const t of e.touches) {
+          activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+      }
+    }, { passive: false });
+
+    touchpad.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      const lastTouch = e.changedTouches[0];
+      for (const t of e.changedTouches) {
+        activeTouches.delete(t.identifier);
+      }
+
+      if (activeTouches.size === 0) {
+        const elapsed = Date.now() - touchStartTime;
+        if (elapsed < 240 && totalMoved < 12) {
+          if (maxTouches === 1) {
+            const now = Date.now();
+            if (now - lastTapTime < 260) {
+              send({ type: "click", button: "left", action: "double" });
+              lastTapTime = 0;
+            } else {
+              send({ type: "click", button: "left", action: "tap" });
+              lastTapTime = now;
+            }
+            vibrate(12);
+            if (lastTouch) spawnRipple(lastTouch.clientX, lastTouch.clientY);
+          } else if (maxTouches === 2) {
+            send({ type: "click", button: "right", action: "tap" });
+            vibrate(18);
+            if (lastTouch) spawnRipple(lastTouch.clientX, lastTouch.clientY);
+          }
+        }
+      }
+    }, { passive: false });
+
+    // Mouse buttons
+    document.getElementById("leftBtn").addEventListener("click", () => {
+      vibrate();
+      send({ type: "click", button: "left", action: "tap" });
+    });
+    document.getElementById("middleBtn").addEventListener("click", () => {
+      vibrate();
+      send({ type: "click", button: "middle", action: "tap" });
+    });
+    document.getElementById("rightBtn").addEventListener("click", () => {
+      vibrate(18);
+      send({ type: "click", button: "right", action: "tap" });
+    });
+
+    // Drag Lock
+    dragLockBtn.addEventListener("click", () => {
+      dragLocked = !dragLocked;
+      dragLockBtn.classList.toggle("active", dragLocked);
+      dragBadge.classList.toggle("visible", dragLocked);
+      vibrate(15);
+      send({ type: "click", button: "left", action: dragLocked ? "down" : "up" });
+    });
+
+    // Keyboard & Media Controls
+    const textInput = document.getElementById("textInput");
+    function flushText() {
+      const val = textInput.value;
+      if (val) {
+        send({ type: "text", text: val });
+        textInput.value = "";
+      }
+    }
+    document.getElementById("sendTextBtn").addEventListener("click", () => {
+      flushText();
+      vibrate();
+    });
+    textInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        flushText();
+        send({ type: "key", key: "enter" });
+      }
+    });
+
+    document.querySelectorAll("[data-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        vibrate();
+        send({ type: "key", key: btn.dataset.key });
+      });
+    });
+
+    document.querySelectorAll("[data-hotkey]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        vibrate();
+        send({ type: "hotkey", keys: btn.dataset.hotkey.split(",") });
+      });
+    });
+
+    // Dock tabs
+    const tabPad = document.getElementById("tabPad");
+    const tabKeyboard = document.getElementById("tabKeyboard");
+    const tabMedia = document.getElementById("tabMedia");
+    const keyboardPanel = document.getElementById("keyboardPanel");
+    const mediaPanel = document.getElementById("mediaPanel");
+
+    function setTab(mode) {
+      tabPad.classList.toggle("active", mode === "pad");
+      tabKeyboard.classList.toggle("active", mode === "keyboard");
+      tabMedia.classList.toggle("active", mode === "media");
+      keyboardPanel.classList.toggle("open", mode === "keyboard");
+      mediaPanel.classList.toggle("open", mode === "media");
+      if (mode === "keyboard") textInput.focus();
+    }
+
+    tabPad.addEventListener("click", () => setTab("pad"));
+    tabKeyboard.addEventListener("click", () => setTab(keyboardPanel.classList.contains("open") ? "pad" : "keyboard"));
+    tabMedia.addEventListener("click", () => setTab(mediaPanel.classList.contains("open") ? "pad" : "media"));
+    document.getElementById("reconnectBtn").addEventListener("click", connectWS);
+
+    // Settings Modal
+    const settingsModal = document.getElementById("settingsModal");
+    const sensSlider = document.getElementById("sensSlider");
+    const scrollSlider = document.getElementById("scrollSlider");
+    const naturalScroll = document.getElementById("naturalScroll");
+    const hapticToggle = document.getElementById("hapticToggle");
+    const wakeLockToggle = document.getElementById("wakeLockToggle");
+
+    sensSlider.value = settings.sensitivity;
+    document.getElementById("sensVal").textContent = settings.sensitivity.toFixed(1);
+    scrollSlider.value = settings.scrollSpeed;
+    document.getElementById("scrollVal").textContent = settings.scrollSpeed.toFixed(1);
+    naturalScroll.checked = settings.naturalScroll;
+    hapticToggle.checked = settings.haptics;
+    wakeLockToggle.checked = settings.wakeLock;
+
+    sensSlider.addEventListener("input", () => {
+      settings.sensitivity = parseFloat(sensSlider.value);
+      document.getElementById("sensVal").textContent = settings.sensitivity.toFixed(1);
+      localStorage.setItem("tp_sens", settings.sensitivity);
+    });
+    scrollSlider.addEventListener("input", () => {
+      settings.scrollSpeed = parseFloat(scrollSlider.value);
+      document.getElementById("scrollVal").textContent = settings.scrollSpeed.toFixed(1);
+      localStorage.setItem("tp_scroll", settings.scrollSpeed);
+    });
+    naturalScroll.addEventListener("change", () => {
+      settings.naturalScroll = naturalScroll.checked;
+      localStorage.setItem("tp_natural", settings.naturalScroll);
+    });
+    hapticToggle.addEventListener("change", () => {
+      settings.haptics = hapticToggle.checked;
+      localStorage.setItem("tp_haptics", settings.haptics);
+    });
+    wakeLockToggle.addEventListener("change", () => {
+      settings.wakeLock = wakeLockToggle.checked;
+      localStorage.setItem("tp_wakelock", settings.wakeLock);
+      updateWakeLock();
+    });
+
+    document.getElementById("settingsBtn").addEventListener("click", () => settingsModal.classList.add("open"));
+    document.getElementById("closeSettingsBtn").addEventListener("click", () => settingsModal.classList.remove("open"));
+
+    document.getElementById("pinSubmitBtn").addEventListener("click", () => {
+      send({ type: "auth", pin: document.getElementById("pinInput").value });
+    });
+
+    connectWS();
+    updateWakeLock();
+  </script>
+</body>
+</html>
